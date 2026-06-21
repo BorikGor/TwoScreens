@@ -1,0 +1,8 @@
+{
+    "C_Cpp.default.configurationProvider": "ms-vscode.makefile-tools",
+    "C_Cpp.default.compilerPath": "C:/DevTools/ArmGNU/bin/arm-none-eabi-gcc.exe",
+
+    "makefile.makePath": "C:/DevTools/WindowsBuildTools/bin/make.exe",
+    "makefile.makefilePath": "${workspaceFolder}/Makefile",
+    "makefile.configureOnOpen": false
+}

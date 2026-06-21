@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "STM32F103 OpenOCD",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "openocd",
+      "cwd": "${workspaceFolder}",
+      "executable": "${workspaceFolder}/build/Running_Line.elf",
+      "device": "STM32F103C8",
+      "runToEntryPoint": "main",
+      "configFiles": [
+        "interface/stlink.cfg",
+        "target/stm32f1x.cfg"
+      ],
+      "searchDir": [
+        "C:/DevTools/OpenOCD/openocd/scripts"
+      ],
+      "serverpath": "C:/DevTools/OpenOCD/bin/openocd.exe",
+      "gdbPath": "C:/DevTools/ArmGNU/bin/arm-none-eabi-gdb.exe",
+      "showDevDebugOutput": "raw",
+    }
+  ]
+}

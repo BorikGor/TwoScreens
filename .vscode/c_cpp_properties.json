@@ -1,0 +1,13 @@
+{
+    "configurations": [
+        {
+            "name": "STM32",
+            "configurationProvider": "ms-vscode.makefile-tools"
+        }
+    ],
+    "defines": [
+        "STM32F103xB",
+        "STM32F1"
+    ],
+    "version": 4
+}
