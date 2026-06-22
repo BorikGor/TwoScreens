@@ -36,10 +36,12 @@ LOCM3_LIB := $(LOCM3_DIR)/lib/libopencm3_stm32f1.a
 # Sources
 C_SOURCES := $(SRC_DIR)/main.c \
              $(SRC_DIR)/display_max7219.c \
-             $(SRC_DIR)/line.c \
-             $(SRC_DIR)/snake.c \
+             $(SRC_DIR)/display_ws2812.c \
              $(SRC_DIR)/usb_cdc.c \
              $(SRC_DIR)/cli.c \
+             $(SRC_DIR)/line.c \
+             $(SRC_DIR)/snake.c \
+             $(SRC_DIR)/fire.c \
 			 $(VENDOR_SRC)/system_stm32f1xx.c
 
 ASM_SOURCES := $(VENDOR_SRC)/startup_stm32f103xb.s
@@ -47,10 +49,12 @@ ASM_SOURCES := $(VENDOR_SRC)/startup_stm32f103xb.s
 # Objects
 C_OBJECTS   := $(BUILD_DIR)/main.o \
                $(BUILD_DIR)/display_max7219.o \
-               $(BUILD_DIR)/line.o \
-               $(BUILD_DIR)/snake.o \
+               $(BUILD_DIR)/display_ws2812.o \
                $(BUILD_DIR)/usb_cdc.o \
                $(BUILD_DIR)/cli.o \
+               $(BUILD_DIR)/line.o \
+               $(BUILD_DIR)/snake.o \
+               $(BUILD_DIR)/fire.o \
 			   $(BUILD_DIR)/system_stm32f1xx.o
 
 ASM_OBJECTS := $(BUILD_DIR)/startup_stm32f103xb.o
@@ -93,10 +97,16 @@ $(BUILD_DIR)/main.o: $(SRC_DIR)/main.c | $(BUILD_DIR)
 $(BUILD_DIR)/display_max7219.o: $(SRC_DIR)/display_max7219.c | $(BUILD_DIR)
 > $(CC) $(CFLAGS) -c $< -o $@
 
+$(BUILD_DIR)/display_ws2812.o: $(SRC_DIR)/display_ws2812.c | $(BUILD_DIR)
+> $(CC) $(CFLAGS) -c $< -o $@
+
 $(BUILD_DIR)/line.o: $(SRC_DIR)/line.c | $(BUILD_DIR)
 > $(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/snake.o: $(SRC_DIR)/snake.c | $(BUILD_DIR)
+> $(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/fire.o: $(SRC_DIR)/fire.c | $(BUILD_DIR)
 > $(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/usb_cdc.o: $(SRC_DIR)/usb_cdc.c | $(BUILD_DIR)

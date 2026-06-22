@@ -6,9 +6,11 @@
 
 #include "line.h"
 #include "display_max7219.h"
-#include "snake.h"
+#include "display_ws2812.h"
 #include "usb_cdc.h"
 #include "cli.h"
+#include "snake.h"
+#include "fire.h"
 
 typedef enum
 {
@@ -364,13 +366,15 @@ int main(void)
     systick_setup();
     usb_reenumerate();
     max7219_init();
+    display_ws2812_init();
 
     usb_cdc_init();
     usb_cdc_set_rx_callback(app_on_rx_char);
 
     line_init();
-    snake_init();
     cli_init();
+    snake_init();
+    fire_init();
 
     while (1)
     {
@@ -383,6 +387,7 @@ int main(void)
         }
 
         now_ms = sys_ms;
+        fire_tick(now_ms);
 
         if (current_mode == MODE_SCROLL)
         {
