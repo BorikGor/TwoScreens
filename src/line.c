@@ -13,11 +13,10 @@ static uint8_t message_cols[MAX_MESSAGE_COLS];
 static uint16_t message_width = 0U;
 static uint16_t scroll_pos = 0U;
 static uint16_t scroll_cycle = 0U;
-static uint32_t last_scroll_ms = 0U;
 static uint32_t scroll_step_ms = DEFAULT_SCROLL_STEP_MS;
 static uint32_t scroll_paused = 0U;
 
-static char current_text[MAX_MESSAGE_LEN] = "Hello Kate!";
+static char current_text[MAX_MESSAGE_LEN] = "This is fine...";
 
 
 /*
@@ -172,43 +171,31 @@ void line_init(void)
     scroll_step_ms = DEFAULT_SCROLL_STEP_MS;
     scroll_paused = 0U;
     scroll_pos = 0U;
-    last_scroll_ms = 0U;
 
     sanitize_ascii_message(current_text);
     build_message();
 }
 
-
 /*
- * Function: line_tick
+ * Function: line_step
  * -------------------
- * Advance the running line when the scroll period has elapsed.
+ * Advance running line by one scheduled step.
  *
  * Method:
- * - Return immediately if paused.
- * - Compare now_ms against last_scroll_ms.
- * - If enough time passed:
- *   - render current scroll position,
- *   - flush framebuffer to display,
- *   - advance scroll position,
- *   - wrap scroll position at scroll_cycle.
+ * - Returns immediately if line is paused.
+ * - Renders current scroll position.
+ * - Flushes framebuffer to display.
+ * - Advances scroll position and wraps at scroll_cycle.
  *
  * Variables:
- * - now_ms: current system time in milliseconds.
+ * - none.
  */
-void line_tick(uint32_t now_ms)
+void line_step(void)
 {
     if (scroll_paused != 0U)
     {
         return;
     }
-
-    if ((now_ms - last_scroll_ms) < scroll_step_ms)
-    {
-        return;
-    }
-
-    last_scroll_ms = now_ms;
 
     render_scroll(scroll_pos);
     frame_flush();
@@ -218,6 +205,23 @@ void line_tick(uint32_t now_ms)
     {
         scroll_pos = 0U;
     }
+}
+
+/*
+ * Function: line_get * Return current running-line period in milliseconds. * Function: line_get_period_ms
+ *
+ * Method:
+ * - Returns current scroll period configured by line_set_speed().
+ *
+ * Variables:
+ * - none.
+ *
+ * Returns:
+ * - Current running-line step period in milliseconds.
+ */
+uint32_t line_get_period_ms(void)
+{
+    return scroll_step_ms;
 }
 
 /*
@@ -252,7 +256,6 @@ void line_set_text(const char *msg)
     build_message();
 
     scroll_pos = 0U;
-    last_scroll_ms = 0U;
 }
 
 /*

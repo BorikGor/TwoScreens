@@ -3,7 +3,6 @@
 #include "snake.h"
 #include "display_max7219.h"
 
-#define SNAKE_STEP_MS 180U
 #define SNAKE_MAX_LEN (DISPLAY_W * DISPLAY_H)
 
 typedef enum
@@ -23,9 +22,7 @@ static uint8_t snake_food_x = 0U;
 static uint8_t snake_food_y = 0U;
 static uint32_t snake_paused = 0U;
 static uint32_t snake_game_over = 0U;
-static uint32_t snake_last_step_ms = 0U;
-static uint32_t snake_blink_ms = 0U;
-static uint32_t snake_blink_state = 0U;
+static uint32_t snake_blink_state = 1U;
 static uint32_t snake_exit_flag = 0U;
 static uint32_t rng_state = 0x12345678U;
 
@@ -41,7 +38,7 @@ static uint32_t rng_state = 0x12345678U;
  * - rng_state: internal generator state.
  *
  * Returns:
- * - next pseudo-random 32-bit value.
+ * - Next pseudo-random 32-bit value.
  */
 static uint32_t rng_next(void)
 {
@@ -150,8 +147,8 @@ static uint32_t snake_is_opposite(snake_dir_t a, snake_dir_t b)
 }
 
 /*
- * Function: snake_step
- * --------------------
+ * Function: snake_advance
+ * -----------------------
  * Advance snake by one simulation step.
  *
  * Method:
@@ -168,18 +165,13 @@ static uint32_t snake_is_opposite(snake_dir_t a, snake_dir_t b)
  * - limit: body scan limit for self-collision.
  * - i: segment shift index.
  */
-static void snake_step(void)
+static void snake_advance(void)
 {
     uint8_t nx;
     uint8_t ny;
     uint32_t growing;
     uint16_t limit;
     uint16_t i;
-
-    if (snake_game_over != 0U || snake_paused != 0U)
-    {
-        return;
-    }
 
     snake_dir = snake_next_dir;
     nx = snake_x[0];
@@ -282,7 +274,7 @@ void snake_init(void)
  *
  * Method:
  * - Places a 4-segment snake near the left-middle area.
- * - Resets directions, timing, flags and RNG mix.
+ * - Resets directions, flags, blink state and RNG mix.
  * - Spawns new food.
  *
  * Variables:
@@ -313,8 +305,6 @@ void snake_reset(void)
     snake_paused = 0U;
     snake_game_over = 0U;
     snake_exit_flag = 0U;
-    snake_last_step_ms = 0U;
-    snake_blink_ms = 0U;
     snake_blink_state = 1U;
 
     rng_state ^= 0xA5A5A5A5U;
@@ -322,24 +312,32 @@ void snake_reset(void)
 }
 
 /*
- * Function: snake_tick
+ * Function: snake_step
  * --------------------
- * Update snake timing and perform one movement step when due.
+ * Advance snake by one scheduled step.
  *
  * Method:
- * - Checks if SNAKE_STEP_MS elapsed.
- * - If yes, stores current time and advances simulation by one step.
+ * - If game is over, toggles blink state and returns.
+ * - If paused, returns without changing state.
+ * - Otherwise advances snake by one movement step.
  *
  * Variables:
- * - now_ms: current system time in milliseconds.
+ * - none.
  */
-void snake_tick(uint32_t now_ms)
+void snake_step(void)
 {
-    if ((now_ms - snake_last_step_ms) >= SNAKE_STEP_MS)
+    if (snake_game_over != 0U)
     {
-        snake_last_step_ms = now_ms;
-        snake_step();
+        snake_blink_state = (snake_blink_state == 0U) ? 1U : 0U;
+        return;
     }
+
+    if (snake_paused != 0U)
+    {
+        return;
+    }
+
+    snake_advance();
 }
 
 /*
@@ -349,7 +347,7 @@ void snake_tick(uint32_t now_ms)
  *
  * Method:
  * - Clears framebuffer.
- * - If game over: blinks whole snake/food image on and off.
+ * - If game is over and blink state is off, leaves display blank.
  * - Draws food and all snake segments.
  *
  * Variables:
@@ -361,18 +359,9 @@ void snake_render(void)
 
     frame_clear();
 
-    if (snake_game_over != 0U)
+    if (snake_game_over != 0U && snake_blink_state == 0U)
     {
-        if ((snake_last_step_ms - snake_blink_ms) >= 250U)
-        {
-            snake_blink_ms = snake_last_step_ms;
-            snake_blink_state = (snake_blink_state == 0U) ? 1U : 0U;
-        }
-
-        if (snake_blink_state == 0U)
-        {
-            return;
-        }
+        return;
     }
 
     set_pixel_xy(snake_food_x, snake_food_y);
@@ -482,10 +471,10 @@ uint32_t snake_is_paused(void)
 /*
  * Function: snake_is_game_over
  * ----------------------------
- * Report snake game over state.
+ * Report snake game-over state.
  *
  * Method:
- * - Returns internal game over flag.
+ * - Returns internal game-over flag.
  *
  * Variables:
  * - none.

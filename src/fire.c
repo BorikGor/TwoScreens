@@ -4,101 +4,22 @@
 #include "fire.h"
 #include "display_ws2812.h"
 
-/*
- * Scheduler timing in milliseconds.
- *
- * Method:
- * - Fire simulation advances every 40 ms, about 25 FPS.
- *
- * Variables:
- * - FIRE_STEP_MS: flame frame interval.
- */
-#define FIRE_STEP_MS           40U
 
-/*
- * WS2812 output brightness scaling.
- *
- * Method:
- * - Keep brightness moderate for safer power draw.
- *
- * Variables:
- * - FIRE_BRIGHTNESS: 0..255 global scaling.
- */
-#define FIRE_BRIGHTNESS        8U
+#define FIRE_BRIGHTNESS  8U
 
-/*
- * Blue accent tuning.
- *
- * Method:
- * - Adds a subtle blue tint only near the base.
- * - Does not affect the hottest spark-like cells.
- *
- * Variables:
- * - BLUE_ROWS: bottom rows that may get blue tint.
- * - BLUE_MIN_HEAT: minimum heat before blue can appear.
- * - BLUE_MAX_HEAT: upper heat limit for blue tint.
- * - BLUE_MAX_VALUE: maximum blue contribution.
- */
-#define BLUE_ROWS              2U
-#define BLUE_MIN_HEAT          40U
-#define BLUE_MAX_HEAT          180U
-#define BLUE_MAX_VALUE         8U
+#define BLUE_ROWS        2U
+#define BLUE_MIN_HEAT    40U
+#define BLUE_MAX_HEAT    180U
+#define BLUE_MAX_VALUE   8U
 
-/*
- * Flame simulation tuning.
- *
- * Method:
- * - BASE_MIN and BASE_MAX define hot values near the bottom.
- * - SPARK_PROB controls intense random bottom sparks.
- * - COOL_BASE and COOL_Y add cooling as heat rises.
- *
- * Variables:
- * - BASE_MIN: minimum bottom-row heat.
- * - BASE_MAX: maximum bottom-row heat.
- * - SPARK_PROB: probability threshold for spark injection.
- * - COOL_BASE: base cooling factor.
- * - COOL_Y: extra cooling per vertical row.
- */
-#define BASE_MIN               40U
-#define BASE_MAX               180U
-#define SPARK_PROB             25U
-#define COOL_BASE              10U
-#define COOL_Y                 3U
+#define BASE_MIN         40U
+#define BASE_MAX         180U
+#define SPARK_PROB       25U
+#define COOL_BASE        10U
+#define COOL_Y           3U
 
-/*
- * Heat map buffers.
- *
- * Method:
- * - heat[y][x] stores current flame intensity 0..255.
- * - next_heat[y][x] stores next flame frame.
- *
- * Variables:
- * - heat: current simulation state.
- * - next_heat: next simulation state.
- */
 static uint8_t heat[WS2812_PANEL_H][WS2812_PANEL_W];
 static uint8_t next_heat[WS2812_PANEL_H][WS2812_PANEL_W];
-
-/*
- * Fire timing state.
- *
- * Method:
- * - Updated from fire_tick(now_ms).
- *
- * Variables:
- * - last_fire_ms: last rendered frame timestamp.
- */
-static uint32_t last_fire_ms = 0U;
-
-/*
- * Random generator state.
- *
- * Method:
- * - Small LCG used for deterministic pseudo-random flame noise.
- *
- * Variables:
- * - rng_state: internal PRNG state.
- */
 static uint32_t rng_state = 0x12345678U;
 
 /*
@@ -152,7 +73,7 @@ static uint8_t scale8(uint8_t value, uint8_t scale)
  * - The hottest cells keep their yellow spark-like color.
  *
  * Variables:
- * - y: visual row index, where 0 is bottom.
+ * - y: visual row index where 0 is bottom.
  * - heat_value: current heat value at the cell.
  * - b: pointer to blue channel to modify.
  * - blue_level: computed blue contribution.
@@ -207,10 +128,6 @@ static void add_base_blue_tint(
  * - heat_value: input flame intensity 0..255.
  * - r, g, b: output channel pointers.
  * - t: local transition value.
- *
- * Notes:
- * - Blue is intentionally not generated here.
- * - Yellow sparks are preferred over white sparks.
  */
 static void heat_to_rgb(
     uint8_t heat_value,
@@ -399,7 +316,6 @@ static void flame_render(void)
  *
  * Method:
  * - Clears internal heat buffers.
- * - Resets timing state.
  * - Generates and renders one initial fire frame.
  *
  * Variables:
@@ -409,7 +325,6 @@ void fire_init(void)
 {
     memset(heat, 0, sizeof(heat));
     memset(next_heat, 0, sizeof(next_heat));
-    last_fire_ms = 0U;
 
     flame_step();
     flame_render();
@@ -417,28 +332,20 @@ void fire_init(void)
 }
 
 /*
- * Function: fire_tick
+ * Function: fire_step
  * -------------------
- * Advance and render the fire effect when its frame time expires.
+ * Advance and render one scheduled fire frame.
  *
  * Method:
- * - Runs one update every FIRE_STEP_MS.
- * - Steps the heat simulation.
- * - Renders RGB frame.
- * - Shows RGB frame on the panel.
+ * - Runs one flame simulation step.
+ * - Renders the heat map into WS2812 RGB buffer.
+ * - Sends the frame to the WS2812 panel.
  *
  * Variables:
- * - now_ms: current application time in milliseconds.
+ * - none.
  */
-void fire_tick(uint32_t now_ms)
+void fire_step(void)
 {
-    if ((now_ms - last_fire_ms) < FIRE_STEP_MS)
-    {
-        return;
-    }
-
-    last_fire_ms = now_ms;
-
     flame_step();
     flame_render();
     display_ws2812_show();

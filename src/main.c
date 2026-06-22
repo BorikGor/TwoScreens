@@ -21,6 +21,21 @@ typedef enum
 static volatile uint32_t sys_ms = 0U;
 static app_mode_t current_mode = MODE_SCROLL;
 
+/* Timer constants */
+#define LED_TOGGLE_MS   500U
+#define SNAKE_STEP_MS   180U
+#define FIRE_STEP_MS    40U
+
+static volatile uint8_t line_due = 0U;
+static volatile uint8_t snake_due = 0U;
+static volatile uint8_t fire_due = 0U;
+static volatile uint8_t led_due = 0U;
+
+static volatile uint32_t line_acc_ms = 0U;
+static volatile uint32_t snake_acc_ms = 0U;
+static volatile uint32_t fire_acc_ms = 0U;
+static volatile uint32_t led_acc_ms = 0U;
+
 /*
  * Function: delay_cycles
  * ----------------------
@@ -43,17 +58,53 @@ static void delay_cycles(volatile uint32_t cycles)
 /*
  * Function: SysTick_Handler
  * -------------------------
- * 1 ms system tick interrupt handler.
+ * 1 ms scheduler interrupt handler.
  *
  * Method:
- * - Increments a global millisecond counter.
+ * - Increments global millisecond counter.
+ * - Accumulates elapsed time for line, snake, fire and LED tasks.
+ * - Sets due flags when a task period expires.
  *
  * Variables:
- * - sys_ms: global millisecond tick counter.
+ * - sys_ms: global millisecond counter.
+ * - line_acc_ms: running-line scheduler accumulator.
+ * - snake_acc_ms: snake scheduler accumulator.
+ * - fire_acc_ms: fire scheduler accumulator.
+ * - led_acc_ms: LED scheduler accumulator.
+ * - line_due, snake_due, fire_due, led_due: task due flags.
  */
 void SysTick_Handler(void)
 {
     sys_ms++;
+
+    line_acc_ms++;
+    snake_acc_ms++;
+    fire_acc_ms++;
+    led_acc_ms++;
+
+    if (line_acc_ms >= line_get_period_ms())
+    {
+        line_acc_ms = 0U;
+        line_due = 1U;
+    }
+
+    if (snake_acc_ms >= SNAKE_STEP_MS)
+    {
+        snake_acc_ms = 0U;
+        snake_due = 1U;
+    }
+
+    if (fire_acc_ms >= FIRE_STEP_MS)
+    {
+        fire_acc_ms = 0U;
+        fire_due = 1U;
+    }
+
+    if (led_acc_ms >= LED_TOGGLE_MS)
+    {
+        led_acc_ms = 0U;
+        led_due = 1U;
+    }
 }
 
 /*
@@ -173,6 +224,23 @@ static void gpio_setup(void)
     gpio_set(GPIOC, GPIO13);
 }
 
+
+/*
+ * Function: led_toggle
+ * --------------------
+ * Toggle onboard LED state.
+ *
+ * Method:
+ * - Toggles PC13 output state.
+ *
+ * Variables:
+ * - none.
+ */
+static void led_toggle(void)
+{
+    gpio_toggle(GPIOC, GPIO13);
+}
+
 /*
  * Function: app_exit_snake_to_line
  * --------------------------------
@@ -244,45 +312,46 @@ static void app_execute_cli_command(const cli_command_t *cmd)
     switch (cmd->type)
     {
         case CLI_CMD_PRINT:
+            usb_cdc_write_text("OK print\r\n");
             line_set_text(cmd->text);
             current_mode = MODE_SCROLL;
             line_resume();
-            usb_cdc_write_text("OK print\r\n");
             break;
 
         case CLI_CMD_PAUSE:
-            line_pause();
             usb_cdc_write_text("OK paused\r\n");
+            line_pause();
             break;
 
         case CLI_CMD_RESUME:
-            line_resume();
             usb_cdc_write_text("OK resumed\r\n");
+            line_resume();
             break;
 
         case CLI_CMD_SPEED:
-            line_set_speed(cmd->value);
             usb_cdc_write_text("OK speed\r\n");
+            line_set_speed(cmd->value);
             break;
 
         case CLI_CMD_INTENSITY:
+            usb_cdc_write_text("OK intensity\r\n");
             intensity = (cmd->value > 15U) ? 15U : (uint8_t)cmd->value;
             max7219_set_intensity(intensity);
-            usb_cdc_write_text("OK intensity\r\n");
             break;
 
         case CLI_CMD_RUN_SNAKE:
             current_mode = MODE_SNAKE;
+            usb_cdc_write_text("OK snake\r\n");
             snake_reset();
             snake_render();
             frame_flush();
-            usb_cdc_write_text("OK snake\r\n");
+            snake_due = 0;
             break;
 
         case CLI_CMD_RUN_LINE:
+            usb_cdc_write_text("OK line\r\n");
             current_mode = MODE_SCROLL;
             line_resume();
-            usb_cdc_write_text("OK line\r\n");
             break;
 
         case CLI_CMD_HELP:
@@ -343,21 +412,16 @@ static void app_on_rx_char(char ch)
 /*
  * Function: main
  * --------------
- * Application entry point.
- *
- * Method:
- * - Initializes clocks, GPIO, display, USB CDC, line and snake modules.
- * - Polls USB CDC transport.
+ - Initializes clocks, GPIO, displays, USB CDC, line, CLI, snake and fire. * Application entry point.
+ * - Polls USB CDC transport continuously.
  * - Executes decoded CLI commands.
- * - Runs either running-line mode or snake mode.
+ * - Runs all periodic work from SysTick-driven due flags.
  *
  * Variables:
- * - now_ms: current system time in milliseconds.
  * - cmd: decoded command popped from CLI module.
  */
 int main(void)
 {
-    uint32_t now_ms;
     cli_command_t cmd;
 
     clock_setup();
@@ -386,18 +450,36 @@ int main(void)
             app_execute_cli_command(&cmd);
         }
 
-        now_ms = sys_ms;
-        fire_tick(now_ms);
+        // now_ms = sys_ms;
+        if(led_due !=0)
+        {
+            led_due = 0;
+            led_toggle();
+        }
+
+        if(fire_due != 0)
+        {
+            fire_due = 0;
+            fire_step();
+        }
 
         if (current_mode == MODE_SCROLL)
         {
-            line_tick(now_ms);
+            if(line_due != 0)
+            {
+                line_due = 0;
+                line_step();
+            }
         }
         else
         {
-            snake_tick(now_ms);
-            snake_render();
-            frame_flush();
+            if(snake_due != 0)
+            {
+                snake_due = 0;
+                snake_step();
+                snake_render();
+                frame_flush();
+            }
 
             if (snake_exit_requested() != 0U)
             {

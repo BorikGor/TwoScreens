@@ -1,11 +1,9 @@
 #ifndef SNAKE_H
 #define SNAKE_H
 
-#include <stdint.h>
-
 void snake_init(void);
 void snake_reset(void);
-void snake_tick(uint32_t now_ms);
+void snake_step(void);
 void snake_render(void);
 void snake_handle_key(char ch);
 

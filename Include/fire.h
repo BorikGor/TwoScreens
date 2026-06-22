@@ -30,6 +30,6 @@ void fire_init(void);
  * Variables:
  * - now_ms: current application time in milliseconds.
  */
-void fire_tick(uint32_t now_ms);
+void fire_step(void);
 
 #endif
